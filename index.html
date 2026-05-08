@@ -6,27 +6,21 @@
 <title>Blocks Survival</title>
 
 <style>
-
 body{
     margin:0;
     overflow:hidden;
     background:#111;
     font-family:Arial;
-    text-align:center;
     color:white;
-}
-
-h1{
-    margin:10px;
+    text-align:center;
 }
 
 canvas{
+    background:#222;
     display:block;
     margin:auto;
-    background:#222;
     border:4px solid white;
 }
-
 </style>
 </head>
 <body>
@@ -42,66 +36,88 @@ const ctx = canvas.getContext("2d");
 
 const gravity = 0.6;
 
-const player = {
-    x: 200,
-    y: 100,
-    width: 40,
-    height: 60,
-    velocityX: 0,
-    velocityY: 0,
-    speed: 5,
-    jumpPower: -13,
-    grounded: false
-};
-
-const keys = {};
+// 🧱 TAILLE UNIQUE DES BLOCS
+const BLOCK_SIZE = 60;
+const GRID_COLS = Math.floor(canvas.width / BLOCK_SIZE);
 
 let blocks = [];
 let gameOver = false;
 let score = 0;
 
-document.addEventListener("keydown", (e)=>{
+const player = {
+    x: 200,
+    y: 100,
+    width: 40,
+    height: 60,
+    vx: 0,
+    vy: 0,
+    speed: 5,
+    jump: -13,
+    grounded: false
+};
+
+const keys = {};
+
+document.addEventListener("keydown",(e)=>{
 
     keys[e.key] = true;
 
-    if(
-        (e.key === " " || e.key === "z" || e.key === "ArrowUp")
-        && player.grounded
-    ){
-        player.velocityY = player.jumpPower;
+    if((e.key === " " || e.key === "z" || e.key === "ArrowUp") && player.grounded){
+        player.vy = player.jump;
         player.grounded = false;
     }
 });
 
-document.addEventListener("keyup", (e)=>{
+document.addEventListener("keyup",(e)=>{
     keys[e.key] = false;
 });
 
+// 📊 hauteur du terrain par colonne
+let groundHeight = new Array(GRID_COLS).fill(canvas.height);
+
+// 🧠 choisir la colonne la plus basse (près du sol)
+function getLowestColumn(){
+
+    let minHeight = Math.min(...groundHeight);
+
+    let candidates = [];
+
+    for(let i=0;i<GRID_COLS;i++){
+
+        if(groundHeight[i] === minHeight){
+            candidates.push(i);
+        }
+    }
+
+    return candidates[Math.floor(Math.random()*candidates.length)];
+}
+
 function createBlock(){
 
-    const size = 50 + Math.random() * 50;
+    let col = getLowestColumn();
+
+    let x = col * BLOCK_SIZE;
 
     blocks.push({
-        x: Math.random() * (canvas.width - size),
-        y: -100,
-        width: size,
-        height: size,
-        velocityY: 0,
+        x: x,
+        y: -BLOCK_SIZE,
+        width: BLOCK_SIZE,
+        height: BLOCK_SIZE,
+        vy: 0,
         landed: false,
-        color: `hsl(${Math.random()*360},70%,50%)`
+        color: `hsl(${Math.random()*360},70%,50%)`,
+        col: col
     });
 }
 
 setInterval(()=>{
-
     if(!gameOver){
         createBlock();
     }
+},800);
 
-}, 1000);
-
-function rectCollision(a,b){
-
+// collision simple
+function rect(a,b){
     return(
         a.x < b.x + b.width &&
         a.x + a.width > b.x &&
@@ -112,120 +128,65 @@ function rectCollision(a,b){
 
 function movePlayer(){
 
-    // déplacement horizontal
-    player.velocityX = 0;
+    player.vx = 0;
 
-    if(keys["ArrowLeft"] || keys["q"]){
-        player.velocityX = -player.speed;
-    }
+    if(keys["ArrowLeft"] || keys["q"]) player.vx = -player.speed;
+    if(keys["ArrowRight"] || keys["d"]) player.vx = player.speed;
 
-    if(keys["ArrowRight"] || keys["d"]){
-        player.velocityX = player.speed;
-    }
+    player.x += player.vx;
 
-    // mouvement horizontal
-    player.x += player.velocityX;
-
-    // collision horizontale
-    for(let block of blocks){
-
-        if(block.landed && rectCollision(player, block)){
-
-            if(player.velocityX > 0){
-                player.x = block.x - player.width;
-            }
-
-            if(player.velocityX < 0){
-                player.x = block.x + block.width;
-            }
-        }
-    }
-
-    // gravité
-    player.velocityY += gravity;
-    player.y += player.velocityY;
+    player.vy += gravity;
+    player.y += player.vy;
 
     player.grounded = false;
 
-    // collision verticale blocs
-    for(let block of blocks){
+    for(let b of blocks){
 
-        if(block.landed && rectCollision(player, block)){
+        if(b.landed && rect(player,b)){
 
-            // tombe dessus
-            if(player.velocityY > 0){
-
-                player.y = block.y - player.height;
-                player.velocityY = 0;
+            if(player.vy > 0){
+                player.y = b.y - player.height;
+                player.vy = 0;
                 player.grounded = true;
-            }
-
-            // tape dessous
-            else if(player.velocityY < 0){
-
-                player.y = block.y + block.height;
-                player.velocityY = 0;
             }
         }
 
-        // danger seulement si le bloc tombe
-        if(!block.landed && rectCollision(player, block)){
+        // danger chute
+        if(!b.landed && rect(player,b)){
             gameOver = true;
         }
     }
 
     // sol
-    if(player.y + player.height >= canvas.height){
-
+    if(player.y + player.height > canvas.height){
         player.y = canvas.height - player.height;
-        player.velocityY = 0;
+        player.vy = 0;
         player.grounded = true;
     }
 
-    // limites écran
-    if(player.x < 0){
-        player.x = 0;
-    }
-
-    if(player.x + player.width > canvas.width){
-        player.x = canvas.width - player.width;
-    }
+    player.x = Math.max(0, Math.min(canvas.width-player.width, player.x));
 }
 
 function updateBlocks(){
 
-    for(let block of blocks){
+    for(let b of blocks){
 
-        if(!block.landed){
+        if(!b.landed){
 
-            block.velocityY += gravity;
-            block.y += block.velocityY;
+            b.vy += gravity;
+            b.y += b.vy;
 
-            // collision sol
-            if(block.y + block.height >= canvas.height){
+            let groundY = groundHeight[b.col];
 
-                block.y = canvas.height - block.height;
-                block.velocityY = 0;
-                block.landed = true;
-            }
+            // touche le sol ou bloc
+            if(b.y + b.height >= groundY){
 
-            // collision autres blocs
-            for(let other of blocks){
+                b.y = groundY - b.height;
+                b.vy = 0;
+                b.landed = true;
 
-                if(block === other) continue;
-
-                if(
-                    other.landed &&
-                    block.x < other.x + other.width &&
-                    block.x + block.width > other.x &&
-                    block.y + block.height >= other.y &&
-                    block.y + block.height <= other.y + 20
-                ){
-
-                    block.y = other.y - block.height;
-                    block.velocityY = 0;
-                    block.landed = true;
-                }
+                // mise à jour hauteur de colonne
+                groundHeight[b.col] -= BLOCK_SIZE;
             }
         }
     }
@@ -233,90 +194,35 @@ function updateBlocks(){
 
 function drawPlayer(){
 
-    // jambes
-    ctx.fillStyle = "#444";
-
-    ctx.fillRect(player.x + 5, player.y + 45, 10, 20);
-    ctx.fillRect(player.x + 25, player.y + 45, 10, 20);
-
-    // corps
     ctx.fillStyle = "#2ecc71";
+    ctx.fillRect(player.x,player.y,player.width,player.height);
 
-    ctx.fillRect(player.x, player.y + 15, 40, 35);
-
-    // bras
-    ctx.fillRect(player.x - 8, player.y + 18, 8, 25);
-    ctx.fillRect(player.x + 40, player.y + 18, 8, 25);
-
-    // tête
     ctx.fillStyle = "#f5cba7";
-
-    ctx.fillRect(player.x + 5, player.y - 10, 30, 25);
-
-    // yeux
-    ctx.fillStyle = "black";
-
-    ctx.fillRect(player.x + 11, player.y - 2, 4, 4);
-    ctx.fillRect(player.x + 24, player.y - 2, 4, 4);
-
-    // bouche
-    ctx.fillRect(player.x + 16, player.y + 7, 8, 2);
+    ctx.fillRect(player.x+8,player.y-10,24,25);
 }
 
 function drawBlocks(){
 
-    for(let block of blocks){
+    for(let b of blocks){
 
-        ctx.fillStyle = block.color;
-
-        ctx.fillRect(
-            block.x,
-            block.y,
-            block.width,
-            block.height
-        );
+        ctx.fillStyle = b.color;
+        ctx.fillRect(b.x,b.y,b.width,b.height);
 
         ctx.strokeStyle = "black";
-
-        ctx.strokeRect(
-            block.x,
-            block.y,
-            block.width,
-            block.height
-        );
+        ctx.strokeRect(b.x,b.y,b.width,b.height);
     }
 }
 
 function drawScore(){
-
-    ctx.fillStyle = "white";
-    ctx.font = "30px Arial";
-
-    ctx.fillText(
-        "Score : " + score,
-        20,
-        40
-    );
+    ctx.fillStyle="white";
+    ctx.font="30px Arial";
+    ctx.fillText("Score : "+score,20,40);
 }
 
 function drawGameOver(){
-
-    ctx.fillStyle = "red";
-    ctx.font = "70px Arial";
-
-    ctx.fillText(
-        "GAME OVER",
-        canvas.width/2 - 220,
-        canvas.height/2
-    );
-
-    ctx.font = "30px Arial";
-
-    ctx.fillText(
-        "Recharge la page pour recommencer",
-        canvas.width/2 - 220,
-        canvas.height/2 + 60
-    );
+    ctx.fillStyle="red";
+    ctx.font="70px Arial";
+    ctx.fillText("GAME OVER",250,300);
 }
 
 function update(){
@@ -324,9 +230,7 @@ function update(){
     ctx.clearRect(0,0,canvas.width,canvas.height);
 
     if(!gameOver){
-
         score++;
-
         movePlayer();
         updateBlocks();
     }
@@ -335,9 +239,7 @@ function update(){
     drawPlayer();
     drawScore();
 
-    if(gameOver){
-        drawGameOver();
-    }
+    if(gameOver) drawGameOver();
 
     requestAnimationFrame(update);
 }
