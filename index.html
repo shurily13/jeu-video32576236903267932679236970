@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blocks Survival</title>
+
+<style>
+
+body{
+    margin:0;
+    overflow:hidden;
+    background:#111;
+    font-family:Arial;
+    color:white;
+}
+
+canvas{
+    display:block;
+    margin:auto;
+    background:#222;
+    border:4px solid white;
+    margin-top:20px;
+}
+
+h1{
+    text-align:center;
+}
+
+</style>
+</head>
+<body>
+
+<h1>🧱 Blocks Survival</h1>
+
+<canvas id="gameCanvas" width="1000" height="600"></canvas>
+
+<script>
+
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+const gravity = 0.5;
+
+const player = {
+    x: 500,
+    y: 500,
+    width: 40,
+    height: 40,
+    color: "cyan",
+    speed: 6
+};
+
+const keys = {};
+
+let blocks = [];
+let gameOver = false;
+let score = 0;
+
+document.addEventListener("keydown", (e) => {
+    keys[e.key] = true;
+});
+
+document.addEventListener("keyup", (e) => {
+    keys[e.key] = false;
+});
+
+function createBlock(){
+
+    const size = 40 + Math.random() * 60;
+
+    blocks.push({
+        x: Math.random() * (canvas.width - size),
+        y: -100,
+        width: size,
+        height: size,
+        velocityY: 0,
+        landed: false,
+        color: `hsl(${Math.random()*360},70%,50%)`
+    });
+}
+
+setInterval(() => {
+
+    if(!gameOver){
+        createBlock();
+    }
+
+}, 800);
+
+function movePlayer(){
+
+    if(keys["ArrowLeft"] || keys["q"]){
+        player.x -= player.speed;
+    }
+
+    if(keys["ArrowRight"] || keys["d"]){
+        player.x += player.speed;
+    }
+
+    if(keys["ArrowUp"] || keys["z"]){
+        player.y -= player.speed;
+    }
+
+    if(keys["ArrowDown"] || keys["s"]){
+        player.y += player.speed;
+    }
+
+    // limites écran
+    if(player.x < 0){
+        player.x = 0;
+    }
+
+    if(player.x + player.width > canvas.width){
+        player.x = canvas.width - player.width;
+    }
+
+    if(player.y < 0){
+        player.y = 0;
+    }
+
+    if(player.y + player.height > canvas.height){
+        player.y = canvas.height - player.height;
+    }
+}
+
+function updateBlocks(){
+
+    for(let block of blocks){
+
+        if(!block.landed){
+
+            block.velocityY += gravity;
+            block.y += block.velocityY;
+
+            // collision sol
+            if(block.y + block.height >= canvas.height){
+
+                block.y = canvas.height - block.height;
+                block.landed = true;
+            }
+
+            // collision avec autres blocs
+            for(let other of blocks){
+
+                if(block === other) continue;
+
+                if(
+                    other.landed &&
+                    block.x < other.x + other.width &&
+                    block.x + block.width > other.x &&
+                    block.y + block.height >= other.y &&
+                    block.y + block.height <= other.y + 20
+                ){
+
+                    block.y = other.y - block.height;
+                    block.landed = true;
+                }
+            }
+        }
+
+        // collision joueur
+        if(
+            player.x < block.x + block.width &&
+            player.x + player.width > block.x &&
+            player.y < block.y + block.height &&
+            player.y + player.height > block.y
+        ){
+
+            gameOver = true;
+        }
+    }
+}
+
+function drawPlayer(){
+
+    ctx.fillStyle = player.color;
+
+    ctx.fillRect(
+        player.x,
+        player.y,
+        player.width,
+        player.height
+    );
+}
+
+function drawBlocks(){
+
+    for(let block of blocks){
+
+        ctx.fillStyle = block.color;
+
+        ctx.fillRect(
+            block.x,
+            block.y,
+            block.width,
+            block.height
+        );
+
+        // contour
+        ctx.strokeStyle = "black";
+
+        ctx.strokeRect(
+            block.x,
+            block.y,
+            block.width,
+            block.height
+        );
+    }
+}
+
+function drawScore(){
+
+    ctx.fillStyle = "white";
+    ctx.font = "30px Arial";
+
+    ctx.fillText("Score : " + score, 20, 40);
+}
+
+function drawGameOver(){
+
+    ctx.fillStyle = "red";
+    ctx.font = "70px Arial";
+
+    ctx.fillText(
+        "GAME OVER",
+        canvas.width / 2 - 220,
+        canvas.height / 2
+    );
+
+    ctx.font = "30px Arial";
+
+    ctx.fillText(
+        "Recharge la page pour recommencer",
+        canvas.width / 2 - 220,
+        canvas.height / 2 + 60
+    );
+}
+
+function update(){
+
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    if(!gameOver){
+
+        score++;
+
+        movePlayer();
+        updateBlocks();
+    }
+
+    drawBlocks();
+    drawPlayer();
+    drawScore();
+
+    if(gameOver){
+        drawGameOver();
+    }
+
+    requestAnimationFrame(update);
+}
+
+update();
+
+</script>
+
+</body>
+</html>
