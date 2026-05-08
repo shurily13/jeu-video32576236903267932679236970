@@ -13,18 +13,18 @@ body{
     background:#111;
     font-family:Arial;
     color:white;
-}
-
-canvas{
-    display:block;
-    margin:auto;
-    background:#222;
-    border:4px solid white;
-    margin-top:20px;
+    text-align:center;
 }
 
 h1{
-    text-align:center;
+    margin:10px;
+}
+
+canvas{
+    background:#222;
+    border:4px solid white;
+    display:block;
+    margin:auto;
 }
 
 </style>
@@ -43,12 +43,12 @@ const ctx = canvas.getContext("2d");
 const gravity = 0.5;
 
 const player = {
-    x: 500,
-    y: 500,
+    x: 450,
+    y: 300,
     width: 40,
-    height: 40,
-    color: "cyan",
-    speed: 6
+    height: 60,
+    speed: 5,
+    color: "cyan"
 };
 
 const keys = {};
@@ -57,17 +57,17 @@ let blocks = [];
 let gameOver = false;
 let score = 0;
 
-document.addEventListener("keydown", (e) => {
+document.addEventListener("keydown", (e)=>{
     keys[e.key] = true;
 });
 
-document.addEventListener("keyup", (e) => {
+document.addEventListener("keyup", (e)=>{
     keys[e.key] = false;
 });
 
 function createBlock(){
 
-    const size = 40 + Math.random() * 60;
+    const size = 50 + Math.random() * 50;
 
     blocks.push({
         x: Math.random() * (canvas.width - size),
@@ -80,15 +80,18 @@ function createBlock(){
     });
 }
 
-setInterval(() => {
+setInterval(()=>{
 
     if(!gameOver){
         createBlock();
     }
 
-}, 800);
+}, 900);
 
 function movePlayer(){
+
+    let oldX = player.x;
+    let oldY = player.y;
 
     if(keys["ArrowLeft"] || keys["q"]){
         player.x -= player.speed;
@@ -121,6 +124,20 @@ function movePlayer(){
 
     if(player.y + player.height > canvas.height){
         player.y = canvas.height - player.height;
+    }
+
+    // collision seulement avec les blocs tombants
+    for(let block of blocks){
+
+        if(
+            !block.landed &&
+            player.x < block.x + block.width &&
+            player.x + player.width > block.x &&
+            player.y < block.y + block.height &&
+            player.y + player.height > block.y
+        ){
+            gameOver = true;
+        }
     }
 }
 
@@ -158,30 +175,30 @@ function updateBlocks(){
                 }
             }
         }
-
-        // collision joueur
-        if(
-            player.x < block.x + block.width &&
-            player.x + player.width > block.x &&
-            player.y < block.y + block.height &&
-            player.y + player.height > block.y
-        ){
-
-            gameOver = true;
-        }
     }
 }
 
 function drawPlayer(){
 
-    ctx.fillStyle = player.color;
+    // corps
+    ctx.fillStyle = "#00d5ff";
+    ctx.fillRect(player.x, player.y, player.width, player.height);
 
-    ctx.fillRect(
-        player.x,
-        player.y,
-        player.width,
-        player.height
-    );
+    // tête
+    ctx.fillStyle = "#ffe0bd";
+    ctx.fillRect(player.x + 5, player.y - 20, 30, 20);
+
+    // yeux
+    ctx.fillStyle = "black";
+
+    ctx.fillRect(player.x + 10, player.y - 15, 4, 4);
+    ctx.fillRect(player.x + 24, player.y - 15, 4, 4);
+
+    // jambes
+    ctx.fillStyle = "#0099cc";
+
+    ctx.fillRect(player.x + 5, player.y + player.height, 10, 15);
+    ctx.fillRect(player.x + 25, player.y + player.height, 10, 15);
 }
 
 function drawBlocks(){
@@ -197,7 +214,6 @@ function drawBlocks(){
             block.height
         );
 
-        // contour
         ctx.strokeStyle = "black";
 
         ctx.strokeRect(
@@ -214,7 +230,11 @@ function drawScore(){
     ctx.fillStyle = "white";
     ctx.font = "30px Arial";
 
-    ctx.fillText("Score : " + score, 20, 40);
+    ctx.fillText(
+        "Score : " + score,
+        20,
+        40
+    );
 }
 
 function drawGameOver(){
@@ -224,16 +244,16 @@ function drawGameOver(){
 
     ctx.fillText(
         "GAME OVER",
-        canvas.width / 2 - 220,
-        canvas.height / 2
+        canvas.width/2 - 220,
+        canvas.height/2
     );
 
     ctx.font = "30px Arial";
 
     ctx.fillText(
         "Recharge la page pour recommencer",
-        canvas.width / 2 - 220,
-        canvas.height / 2 + 60
+        canvas.width/2 - 220,
+        canvas.height/2 + 60
     );
 }
 
