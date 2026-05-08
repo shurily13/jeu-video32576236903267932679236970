@@ -34,15 +34,17 @@ canvas{
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-const gravity = 0.6;
-
-// 🧱 TAILLE UNIQUE DES BLOCS
 const BLOCK_SIZE = 60;
-const GRID_COLS = Math.floor(canvas.width / BLOCK_SIZE);
+const COLS = Math.floor(canvas.width / BLOCK_SIZE);
+
+const gravity = 0.6;
 
 let blocks = [];
 let gameOver = false;
 let score = 0;
+
+// hauteur du terrain (par colonne)
+let groundHeight = new Array(COLS).fill(canvas.height);
 
 const player = {
     x: 200,
@@ -72,29 +74,39 @@ document.addEventListener("keyup",(e)=>{
     keys[e.key] = false;
 });
 
-// 📊 hauteur du terrain par colonne
-let groundHeight = new Array(GRID_COLS).fill(canvas.height);
+// 🎯 fonction probabiliste (plus bas = plus de chance)
+function weightedColumn(){
 
-// 🧠 choisir la colonne la plus basse (près du sol)
-function getLowestColumn(){
+    let weights = [];
 
-    let minHeight = Math.min(...groundHeight);
+    for(let i=0;i<COLS;i++){
 
-    let candidates = [];
+        // plus la hauteur est basse => plus le poids est grand
+        let h = groundHeight[i];
 
-    for(let i=0;i<GRID_COLS;i++){
+        let weight = (canvas.height - h) + 1;
 
-        if(groundHeight[i] === minHeight){
-            candidates.push(i);
+        weights.push(weight);
+    }
+
+    let total = weights.reduce((a,b)=>a+b,0);
+    let r = Math.random() * total;
+
+    let sum = 0;
+
+    for(let i=0;i<COLS;i++){
+        sum += weights[i];
+        if(r < sum){
+            return i;
         }
     }
 
-    return candidates[Math.floor(Math.random()*candidates.length)];
+    return 0;
 }
 
 function createBlock(){
 
-    let col = getLowestColumn();
+    let col = weightedColumn();
 
     let x = col * BLOCK_SIZE;
 
@@ -105,8 +117,8 @@ function createBlock(){
         height: BLOCK_SIZE,
         vy: 0,
         landed: false,
-        color: `hsl(${Math.random()*360},70%,50%)`,
-        col: col
+        col: col,
+        color: `hsl(${Math.random()*360},70%,50%)`
     });
 }
 
@@ -151,13 +163,12 @@ function movePlayer(){
             }
         }
 
-        // danger chute
+        // danger pendant chute
         if(!b.landed && rect(player,b)){
             gameOver = true;
         }
     }
 
-    // sol
     if(player.y + player.height > canvas.height){
         player.y = canvas.height - player.height;
         player.vy = 0;
@@ -178,14 +189,13 @@ function updateBlocks(){
 
             let groundY = groundHeight[b.col];
 
-            // touche le sol ou bloc
             if(b.y + b.height >= groundY){
 
                 b.y = groundY - b.height;
                 b.vy = 0;
                 b.landed = true;
 
-                // mise à jour hauteur de colonne
+                // la hauteur change localement (terrain irrégulier)
                 groundHeight[b.col] -= BLOCK_SIZE;
             }
         }
@@ -197,6 +207,7 @@ function drawPlayer(){
     ctx.fillStyle = "#2ecc71";
     ctx.fillRect(player.x,player.y,player.width,player.height);
 
+    // tête
     ctx.fillStyle = "#f5cba7";
     ctx.fillRect(player.x+8,player.y-10,24,25);
 }
