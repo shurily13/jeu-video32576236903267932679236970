@@ -12,8 +12,8 @@ body{
     overflow:hidden;
     background:#111;
     font-family:Arial;
-    color:white;
     text-align:center;
+    color:white;
 }
 
 h1{
@@ -21,10 +21,10 @@ h1{
 }
 
 canvas{
-    background:#222;
-    border:4px solid white;
     display:block;
     margin:auto;
+    background:#222;
+    border:4px solid white;
 }
 
 </style>
@@ -40,15 +40,18 @@ canvas{
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
-const gravity = 0.5;
+const gravity = 0.6;
 
 const player = {
-    x: 450,
-    y: 300,
+    x: 200,
+    y: 100,
     width: 40,
     height: 60,
+    velocityX: 0,
+    velocityY: 0,
     speed: 5,
-    color: "cyan"
+    jumpPower: -13,
+    grounded: false
 };
 
 const keys = {};
@@ -58,7 +61,16 @@ let gameOver = false;
 let score = 0;
 
 document.addEventListener("keydown", (e)=>{
+
     keys[e.key] = true;
+
+    if(
+        (e.key === " " || e.key === "z" || e.key === "ArrowUp")
+        && player.grounded
+    ){
+        player.velocityY = player.jumpPower;
+        player.grounded = false;
+    }
 });
 
 document.addEventListener("keyup", (e)=>{
@@ -86,27 +98,88 @@ setInterval(()=>{
         createBlock();
     }
 
-}, 900);
+}, 1000);
+
+function rectCollision(a,b){
+
+    return(
+        a.x < b.x + b.width &&
+        a.x + a.width > b.x &&
+        a.y < b.y + b.height &&
+        a.y + a.height > b.y
+    );
+}
 
 function movePlayer(){
 
-    let oldX = player.x;
-    let oldY = player.y;
+    // déplacement horizontal
+    player.velocityX = 0;
 
     if(keys["ArrowLeft"] || keys["q"]){
-        player.x -= player.speed;
+        player.velocityX = -player.speed;
     }
 
     if(keys["ArrowRight"] || keys["d"]){
-        player.x += player.speed;
+        player.velocityX = player.speed;
     }
 
-    if(keys["ArrowUp"] || keys["z"]){
-        player.y -= player.speed;
+    // mouvement horizontal
+    player.x += player.velocityX;
+
+    // collision horizontale
+    for(let block of blocks){
+
+        if(block.landed && rectCollision(player, block)){
+
+            if(player.velocityX > 0){
+                player.x = block.x - player.width;
+            }
+
+            if(player.velocityX < 0){
+                player.x = block.x + block.width;
+            }
+        }
     }
 
-    if(keys["ArrowDown"] || keys["s"]){
-        player.y += player.speed;
+    // gravité
+    player.velocityY += gravity;
+    player.y += player.velocityY;
+
+    player.grounded = false;
+
+    // collision verticale blocs
+    for(let block of blocks){
+
+        if(block.landed && rectCollision(player, block)){
+
+            // tombe dessus
+            if(player.velocityY > 0){
+
+                player.y = block.y - player.height;
+                player.velocityY = 0;
+                player.grounded = true;
+            }
+
+            // tape dessous
+            else if(player.velocityY < 0){
+
+                player.y = block.y + block.height;
+                player.velocityY = 0;
+            }
+        }
+
+        // danger seulement si le bloc tombe
+        if(!block.landed && rectCollision(player, block)){
+            gameOver = true;
+        }
+    }
+
+    // sol
+    if(player.y + player.height >= canvas.height){
+
+        player.y = canvas.height - player.height;
+        player.velocityY = 0;
+        player.grounded = true;
     }
 
     // limites écran
@@ -116,28 +189,6 @@ function movePlayer(){
 
     if(player.x + player.width > canvas.width){
         player.x = canvas.width - player.width;
-    }
-
-    if(player.y < 0){
-        player.y = 0;
-    }
-
-    if(player.y + player.height > canvas.height){
-        player.y = canvas.height - player.height;
-    }
-
-    // collision seulement avec les blocs tombants
-    for(let block of blocks){
-
-        if(
-            !block.landed &&
-            player.x < block.x + block.width &&
-            player.x + player.width > block.x &&
-            player.y < block.y + block.height &&
-            player.y + player.height > block.y
-        ){
-            gameOver = true;
-        }
     }
 }
 
@@ -154,10 +205,11 @@ function updateBlocks(){
             if(block.y + block.height >= canvas.height){
 
                 block.y = canvas.height - block.height;
+                block.velocityY = 0;
                 block.landed = true;
             }
 
-            // collision avec autres blocs
+            // collision autres blocs
             for(let other of blocks){
 
                 if(block === other) continue;
@@ -171,6 +223,7 @@ function updateBlocks(){
                 ){
 
                     block.y = other.y - block.height;
+                    block.velocityY = 0;
                     block.landed = true;
                 }
             }
@@ -180,25 +233,34 @@ function updateBlocks(){
 
 function drawPlayer(){
 
+    // jambes
+    ctx.fillStyle = "#444";
+
+    ctx.fillRect(player.x + 5, player.y + 45, 10, 20);
+    ctx.fillRect(player.x + 25, player.y + 45, 10, 20);
+
     // corps
-    ctx.fillStyle = "#00d5ff";
-    ctx.fillRect(player.x, player.y, player.width, player.height);
+    ctx.fillStyle = "#2ecc71";
+
+    ctx.fillRect(player.x, player.y + 15, 40, 35);
+
+    // bras
+    ctx.fillRect(player.x - 8, player.y + 18, 8, 25);
+    ctx.fillRect(player.x + 40, player.y + 18, 8, 25);
 
     // tête
-    ctx.fillStyle = "#ffe0bd";
-    ctx.fillRect(player.x + 5, player.y - 20, 30, 20);
+    ctx.fillStyle = "#f5cba7";
+
+    ctx.fillRect(player.x + 5, player.y - 10, 30, 25);
 
     // yeux
     ctx.fillStyle = "black";
 
-    ctx.fillRect(player.x + 10, player.y - 15, 4, 4);
-    ctx.fillRect(player.x + 24, player.y - 15, 4, 4);
+    ctx.fillRect(player.x + 11, player.y - 2, 4, 4);
+    ctx.fillRect(player.x + 24, player.y - 2, 4, 4);
 
-    // jambes
-    ctx.fillStyle = "#0099cc";
-
-    ctx.fillRect(player.x + 5, player.y + player.height, 10, 15);
-    ctx.fillRect(player.x + 25, player.y + player.height, 10, 15);
+    // bouche
+    ctx.fillRect(player.x + 16, player.y + 7, 8, 2);
 }
 
 function drawBlocks(){
