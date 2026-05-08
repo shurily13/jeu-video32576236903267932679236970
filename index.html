@@ -4,131 +4,83 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Blocks Survival</title>
-
 <style>
-body{
-    margin:0;
-    overflow:hidden;
-    background:#111;
-    font-family:Arial;
-    color:white;
-    text-align:center;
-}
-
-canvas{
-    background:#222;
-    display:block;
-    margin:auto;
-    border:4px solid white;
-}
+body{margin:0;overflow:hidden;background:#111;font-family:Arial;color:white;text-align:center;}
+canvas{background:#222;display:block;margin:auto;border:4px solid white;}
 </style>
 </head>
 <body>
-
 <h1>🧱 Blocks Survival</h1>
-
 <canvas id="gameCanvas" width="1000" height="600"></canvas>
-
 <script>
-
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 
 const BLOCK_SIZE = 60;
+const BLOCK_H = 30;
 const COLS = Math.floor(canvas.width / BLOCK_SIZE);
-
 const gravity = 0.6;
 
 let blocks = [];
 let gameOver = false;
 let score = 0;
-
-// hauteur du terrain (par colonne)
 let groundHeight = new Array(COLS).fill(canvas.height);
 
 const player = {
-    x: 200,
-    y: 100,
-    width: 40,
-    height: 60,
-    vx: 0,
-    vy: 0,
-    speed: 5,
-    jump: -13,
+    x: 200, y: 100,
+    width: 40, height: 60,
+    vx: 0, vy: 0,
+    speed: 5, jump: -13,
     grounded: false
 };
 
 const keys = {};
 
 document.addEventListener("keydown",(e)=>{
-
     keys[e.key] = true;
-
     if((e.key === " " || e.key === "z" || e.key === "ArrowUp") && player.grounded){
         player.vy = player.jump;
         player.grounded = false;
     }
 });
 
-document.addEventListener("keyup",(e)=>{
-    keys[e.key] = false;
-});
+document.addEventListener("keyup",(e)=>{ keys[e.key] = false; });
 
-// 🎯 fonction probabiliste (plus bas = plus de chance)
 function weightedColumn(){
-
     let weights = [];
-
-    for(let i=0;i<COLS;i++){
-
-        // plus la hauteur est basse => plus le poids est grand
+    for(let i = 0; i < COLS; i++){
         let h = groundHeight[i];
-
-        let weight = (canvas.height - h) + 1;
-
+        // Plus le terrain est BAS (h proche de canvas.height), plus le poids est GRAND
+        // => les blocs tombent en priorité dans les zones libres
+        let weight = h + 1;
         weights.push(weight);
     }
-
     let total = weights.reduce((a,b)=>a+b,0);
     let r = Math.random() * total;
-
     let sum = 0;
-
-    for(let i=0;i<COLS;i++){
+    for(let i = 0; i < COLS; i++){
         sum += weights[i];
-        if(r < sum){
-            return i;
-        }
+        if(r < sum) return i;
     }
-
     return 0;
 }
 
 function createBlock(){
-
     let col = weightedColumn();
-
     let x = col * BLOCK_SIZE;
-
     blocks.push({
         x: x,
-        y: -BLOCK_SIZE,
+        y: -BLOCK_H,
         width: BLOCK_SIZE,
-        height: BLOCK_SIZE,
+        height: BLOCK_H,
         vy: 0,
         landed: false,
-        col: col,
-        color: `hsl(${Math.random()*360},70%,50%)`
+        col: col
     });
 }
 
-setInterval(()=>{
-    if(!gameOver){
-        createBlock();
-    }
-},800);
+setInterval(()=>{ if(!gameOver) createBlock(); }, 800);
 
-// collision simple
 function rect(a,b){
     return(
         a.x < b.x + b.width &&
@@ -139,31 +91,22 @@ function rect(a,b){
 }
 
 function movePlayer(){
-
     player.vx = 0;
-
     if(keys["ArrowLeft"] || keys["q"]) player.vx = -player.speed;
     if(keys["ArrowRight"] || keys["d"]) player.vx = player.speed;
-
     player.x += player.vx;
-
     player.vy += gravity;
     player.y += player.vy;
-
     player.grounded = false;
 
     for(let b of blocks){
-
         if(b.landed && rect(player,b)){
-
             if(player.vy > 0){
                 player.y = b.y - player.height;
                 player.vy = 0;
                 player.grounded = true;
             }
         }
-
-        // danger pendant chute
         if(!b.landed && rect(player,b)){
             gameOver = true;
         }
@@ -174,90 +117,69 @@ function movePlayer(){
         player.vy = 0;
         player.grounded = true;
     }
-
-    player.x = Math.max(0, Math.min(canvas.width-player.width, player.x));
+    player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
 }
 
 function updateBlocks(){
-
     for(let b of blocks){
-
         if(!b.landed){
-
             b.vy += gravity;
             b.y += b.vy;
-
             let groundY = groundHeight[b.col];
-
             if(b.y + b.height >= groundY){
-
                 b.y = groundY - b.height;
                 b.vy = 0;
                 b.landed = true;
-
-                // la hauteur change localement (terrain irrégulier)
-                groundHeight[b.col] -= BLOCK_SIZE;
+                groundHeight[b.col] -= b.height;
             }
         }
     }
 }
 
 function drawPlayer(){
-
     ctx.fillStyle = "#2ecc71";
-    ctx.fillRect(player.x,player.y,player.width,player.height);
-
-    // tête
+    ctx.fillRect(player.x, player.y, player.width, player.height);
     ctx.fillStyle = "#f5cba7";
-    ctx.fillRect(player.x+8,player.y-10,24,25);
+    ctx.fillRect(player.x+8, player.y-10, 24, 25);
 }
 
 function drawBlocks(){
-
     for(let b of blocks){
-
-        ctx.fillStyle = b.color;
-        ctx.fillRect(b.x,b.y,b.width,b.height);
-
+        ctx.fillStyle = "#888888";
+        ctx.fillRect(b.x, b.y, b.width, b.height);
         ctx.strokeStyle = "black";
-        ctx.strokeRect(b.x,b.y,b.width,b.height);
+        ctx.lineWidth = 1;
+        ctx.strokeRect(b.x, b.y, b.width, b.height);
     }
 }
 
 function drawScore(){
-    ctx.fillStyle="white";
-    ctx.font="30px Arial";
-    ctx.fillText("Score : "+score,20,40);
+    ctx.fillStyle = "white";
+    ctx.font = "30px Arial";
+    ctx.fillText("Score : " + score, 20, 40);
 }
 
 function drawGameOver(){
-    ctx.fillStyle="red";
-    ctx.font="70px Arial";
-    ctx.fillText("GAME OVER",250,300);
+    ctx.fillStyle = "red";
+    ctx.font = "70px Arial";
+    ctx.fillText("GAME OVER", 250, 300);
 }
 
 function update(){
-
-    ctx.clearRect(0,0,canvas.width,canvas.height);
-
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
     if(!gameOver){
         score++;
         movePlayer();
         updateBlocks();
     }
-
     drawBlocks();
     drawPlayer();
     drawScore();
-
     if(gameOver) drawGameOver();
-
     requestAnimationFrame(update);
 }
 
 update();
-
 </script>
-
 </body>
 </html>
