@@ -351,6 +351,13 @@ function drawBlocks() {
 }
 
 // ---- UI ----
+function getFilledRatio() {
+    let filled = 0;
+    for (let i = 0; i < COLS; i++) {
+        filled += (canvas.height - groundHeight[i]) * BLOCK_SIZE;
+    }
+    return filled / (canvas.width * canvas.height);
+}
 function pixelText(txt, x, y, size, color, align="center") {
     ctx.fillStyle = color;
     ctx.font = `bold ${size}px 'Courier New'`;
@@ -372,9 +379,8 @@ function drawMenu() {
     const cx = canvas.width / 2;
     ctx.fillStyle = "#1a1a2e"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.fillRect(cx-360, 90, 720, 120);
+    ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.fillRect(cx-360, 90, 720, 80);
     pixelText("🧱 BLOCKS SURVIVAL", cx, 152, 46, "#fff");
-    pixelText("Remplis 80% du terrain pour la vague dorée", cx, 192, 18, "#ffd700");
 
     // Personnage animé en aperçu
     const sv=player.walking, sg=player.grounded, sf=player.facing, sx=player.x, sy=player.y;
@@ -415,6 +421,40 @@ function drawHUD() {
     ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(0, 0, canvas.width, 44);
     pixelText("BLOCKS SURVIVAL", 16, 28, 18, "#888", "left");
     pixelText("Score : " + score, canvas.width/2, 30, 22, "#fff");
+
+    // Barre de chargement vers la vague dorée
+    const ratio = Math.min(getFilledRatio() / 0.80, 1);
+    const bx = canvas.width - 280, by = 10;
+    const bw = 260, bh = 24;
+
+    // Fond de la barre
+    ctx.fillStyle = "rgba(0,0,0,0.6)"; ctx.fillRect(bx-2, by-2, bw+4, bh+4);
+    ctx.fillStyle = "#222"; ctx.fillRect(bx, by, bw, bh);
+
+    // Remplissage dégradé gris → or selon le ratio
+    const grad = ctx.createLinearGradient(bx, by, bx+bw, by);
+    grad.addColorStop(0, "#666");
+    grad.addColorStop(0.6, "#aaa");
+    grad.addColorStop(1, "#ffd700");
+    ctx.fillStyle = grad;
+    ctx.fillRect(bx, by, bw * ratio, bh);
+
+    // Reflet
+    ctx.fillStyle = "rgba(255,255,255,0.15)"; ctx.fillRect(bx, by, bw * ratio, bh/2);
+
+    // Contour
+    ctx.strokeStyle = ratio >= 1 ? "#ffd700" : "#555"; ctx.lineWidth = 1.5;
+    ctx.strokeRect(bx, by, bw, bh);
+
+    // Icône éclair + label
+    ctx.globalAlpha = 0.6 + 0.4 * Math.sin(frame * 0.1);
+    pixelText("⚡", bx - 20, by + bh - 4, 18, "#ffd700", "left");
+    ctx.globalAlpha = 1;
+
+    // Pourcentage
+    const pct = Math.round(ratio * 100);
+    pixelText(pct + "%", bx + bw/2, by + bh - 5, 13, ratio >= 1 ? "#ffd700" : "#ccc");
+
     if (goldWave) {
         ctx.globalAlpha = 0.5 + 0.5*Math.sin(frame*0.2);
         pixelText("⚡ VAGUE DORÉE ! ⚡", canvas.width/2, 75, 26, "#ffd700");
