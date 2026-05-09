@@ -201,7 +201,15 @@ function updateBlocks() {
             }
         }
     }
-    if (!goldWave && score >= 2500) triggerGoldWave();
+    // Vague dorée quand 80% de la surface du terrain est occupée
+    if (!goldWave) {
+        let totalArea = canvas.width * canvas.height;
+        let filledArea = 0;
+        for (let i = 0; i < COLS; i++) {
+            filledArea += (canvas.height - groundHeight[i]) * BLOCK_SIZE;
+        }
+        if (filledArea / totalArea >= 0.80) triggerGoldWave();
+    }
 }
 
 // ---- PERSONNAGE STYLE MINECRAFT ARTICULÉ ----
@@ -366,7 +374,7 @@ function drawMenu() {
 
     ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.fillRect(cx-360, 90, 720, 120);
     pixelText("🧱 BLOCKS SURVIVAL", cx, 152, 46, "#fff");
-    pixelText("Atteins 2500 points pour la vague dorée", cx, 192, 18, "#ffd700");
+    pixelText("Remplis 80% du terrain pour la vague dorée", cx, 192, 18, "#ffd700");
 
     // Personnage animé en aperçu
     const sv=player.walking, sg=player.grounded, sf=player.facing, sx=player.x, sy=player.y;
