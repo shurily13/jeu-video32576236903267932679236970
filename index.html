@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Blocks Survival</title>
-
 <style>
 body{
     margin:0;
@@ -13,7 +12,6 @@ body{
     font-family:'Courier New',monospace;
     color:white;
 }
-
 canvas{
     display:block;
     margin:auto;
@@ -22,9 +20,7 @@ canvas{
 </style>
 </head>
 <body>
-
 <canvas id="gameCanvas" width="1200" height="700"></canvas>
-
 <script>
 
 const canvas = document.getElementById("gameCanvas");
@@ -33,814 +29,417 @@ const ctx = canvas.getContext("2d");
 const COLS = 6;
 const BLOCK_SIZE = canvas.width / COLS;
 const BLOCK_H = 70;
-
 const gravity = 0.55;
 
 let state = "menu";
-
 let blocks = [];
 let score = 0;
 let frame = 0;
-
 let groundHeight = new Array(COLS).fill(canvas.height);
-
 let spawnInterval = null;
-
 let goldWave = false;
 let shakeFrames = 0;
 
 const player = {
-
-    x:0,
-    y:0,
-
-    width:30,
-    height:72,
-
-    vx:0,
-    vy:0,
-
-    speed:5,
-    jump:-14,
-
-    grounded:false,
-
-    facing:1,
-    walking:false
+    x: 0, y: 0,
+    width: 30, height: 72,
+    vx: 0, vy: 0,
+    speed: 5, jump: -14,
+    grounded: false,
+    facing: 1, walking: false
 };
 
 const keys = {};
 
-document.addEventListener("keydown",(e)=>{
-
+document.addEventListener("keydown", (e) => {
     keys[e.key] = true;
-
-    if(
-        (e.key===" " || e.key==="z" || e.key==="ArrowUp")
-        && player.grounded
-        && state==="playing"
-    ){
+    if ((e.key === " " || e.key === "z" || e.key === "ArrowUp") && player.grounded && state === "playing") {
         player.vy = player.jump;
         player.grounded = false;
     }
-
-    if(e.key==="Enter"){
-
-        if(state==="menu") startGame();
-
-        else if(state==="dead") startGame();
+    if (e.key === "Enter") {
+        if (state === "menu") startGame();
+        else if (state === "dead") startGame();
     }
 });
 
-document.addEventListener("keyup",(e)=>{
+document.addEventListener("keyup", (e) => { keys[e.key] = false; });
 
-    keys[e.key] = false;
+canvas.addEventListener("click", (e) => {
+    const r = canvas.getBoundingClientRect();
+    const mx = e.clientX - r.left, my = e.clientY - r.top;
+    const cx = canvas.width / 2;
+    if (state === "menu" && mx > cx-190 && mx < cx+190 && my > 440 && my < 510) startGame();
+    if (state === "dead") {
+        if (mx > cx-190 && mx < cx+190 && my > 390 && my < 455) startGame();
+        if (mx > cx-190 && mx < cx+190 && my > 470 && my < 535) state = "menu";
+    }
 });
 
-function startGame(){
-
+function startGame() {
     blocks = [];
-
     score = 0;
-
     frame = 0;
-
     groundHeight = new Array(COLS).fill(canvas.height);
-
-    player.x = canvas.width/2-player.width/2;
-    player.y = canvas.height-player.height-2;
-
-    player.vx = 0;
-    player.vy = 0;
-
-    player.grounded = false;
-
-    player.facing = 1;
-
+    player.x = canvas.width / 2 - player.width / 2;
+    player.y = canvas.height - player.height - 2;
+    player.vx = 0; player.vy = 0;
+    player.grounded = false; player.facing = 1;
     goldWave = false;
-
     state = "playing";
-
-    if(spawnInterval){
-
-        clearInterval(spawnInterval);
-    }
-
-    spawnInterval = setInterval(()=>{
-
-        if(state==="playing" && !goldWave){
-
-            createBlock();
-        }
-
-    },900);
+    if (spawnInterval) clearInterval(spawnInterval);
+    spawnInterval = setInterval(() => {
+        if (state === "playing" && !goldWave) createBlock();
+    }, 900);
 }
 
-// zones basses favorisées
-
-function weightedColumn(){
-
+function weightedColumn() {
     let weights = [];
-
-    for(let i=0;i<COLS;i++){
-
-        let depth = canvas.height-groundHeight[i];
-
-        let weight = Math.max(1,140-depth);
-
+    for (let i = 0; i < COLS; i++) {
+        let depth = canvas.height - groundHeight[i];
+        let weight = Math.max(1, 140 - depth);
         weights.push(weight);
     }
-
-    let total = weights.reduce((a,b)=>a+b,0);
-
-    let r = Math.random()*total;
-
-    let sum = 0;
-
-    for(let i=0;i<COLS;i++){
-
+    let total = weights.reduce((a, b) => a + b, 0);
+    let r = Math.random() * total, sum = 0;
+    for (let i = 0; i < COLS; i++) {
         sum += weights[i];
-
-        if(r < sum){
-
-            return i;
-        }
+        if (r < sum) return i;
     }
-
     return 0;
 }
 
-function createBlock(gold=false){
-
+function createBlock(gold = false) {
     let col = weightedColumn();
-
     blocks.push({
-
-        x:col*BLOCK_SIZE,
-        y:-BLOCK_H,
-
-        width:BLOCK_SIZE,
-        height:BLOCK_H,
-
-        vy:gold ? 3 : 0,
-
-        landed:false,
-
-        col:col,
-
-        gold:gold
+        x: col * BLOCK_SIZE, y: -BLOCK_H,
+        width: BLOCK_SIZE, height: BLOCK_H,
+        vy: gold ? 3 : 0,
+        landed: false, col: col, gold: gold
     });
 }
 
-function triggerGoldWave(){
-
+function triggerGoldWave() {
     goldWave = true;
-
     shakeFrames = 20;
-
     clearInterval(spawnInterval);
-
-    blocks = blocks.filter(b=>!b.landed);
-
+    blocks = blocks.filter(b => !b.landed);
     groundHeight = new Array(COLS).fill(canvas.height);
-
     let count = 0;
-
-    const gi = setInterval(()=>{
-
-        if(state!=="playing"){
-
-            clearInterval(gi);
-
-            return;
-        }
-
-        for(let k=0;k<2;k++){
-
-            createBlock(true);
-        }
-
+    const gi = setInterval(() => {
+        if (state !== "playing") { clearInterval(gi); return; }
+        for (let k = 0; k < 2; k++) createBlock(true);
         count++;
-
-        if(count >= COLS*2){
-
+        if (count >= COLS * 2) {
             clearInterval(gi);
-
             goldWave = false;
-
-            spawnInterval = setInterval(()=>{
-
-                if(state==="playing" && !goldWave){
-
-                    createBlock();
-                }
-
-            },900);
+            spawnInterval = setInterval(() => {
+                if (state === "playing" && !goldWave) createBlock();
+            }, 900);
         }
-
-    },200);
+    }, 200);
 }
 
-function rect(a,b){
-
-    return(
-
-        a.x < b.x+b.width
-        &&
-        a.x+a.width > b.x
-        &&
-        a.y < b.y+b.height
-        &&
-        a.y+a.height > b.y
-    );
+function rect(a, b) {
+    return a.x < b.x+b.width && a.x+a.width > b.x && a.y < b.y+b.height && a.y+a.height > b.y;
 }
 
-function killPlayer(){
-
+function killPlayer() {
     state = "dead";
-
     clearInterval(spawnInterval);
 }
 
-function resolveCollisions(){
-
+function resolveCollisions() {
     player.grounded = false;
 
-    // horizontal
+    // Horizontal
     player.x += player.vx;
-
-    for(let b of blocks){
-
-        if(!b.landed || !rect(player,b)) continue;
-
-        let oR = (player.x+player.width)-b.x;
-        let oL = (b.x+b.width)-player.x;
-
-        if(oR < oL){
-
-            player.x = b.x-player.width;
-        }
-        else{
-
-            player.x = b.x+b.width;
-        }
-
+    for (let b of blocks) {
+        if (!b.landed || !rect(player, b)) continue;
+        let oR = (player.x + player.width) - b.x;
+        let oL = (b.x + b.width) - player.x;
+        if (oR < oL) { player.x = b.x - player.width; }
+        else { player.x = b.x + b.width; }
         player.vx = 0;
     }
+    player.x = Math.max(0, Math.min(canvas.width - player.width, player.x));
 
-    player.x = Math.max(
-        0,
-        Math.min(canvas.width-player.width,player.x)
-    );
-
-    // vertical
+    // Vertical
     player.vy += gravity;
-
     player.y += player.vy;
-
-    for(let b of blocks){
-
-        if(!b.landed || !rect(player,b)) continue;
-
-        let oB = (player.y+player.height)-b.y;
-        let oT = (b.y+b.height)-player.y;
-
-        if(oB < oT){
-
-            player.y = b.y-player.height;
-
-            player.vy = 0;
-
-            player.grounded = true;
-        }
-        else{
-
-            player.y = b.y+b.height;
-
-            player.vy = 0;
-        }
+    for (let b of blocks) {
+        if (!b.landed || !rect(player, b)) continue;
+        let oB = (player.y + player.height) - b.y;
+        let oT = (b.y + b.height) - player.y;
+        if (oB < oT) { player.y = b.y - player.height; player.vy = 0; player.grounded = true; }
+        else { player.y = b.y + b.height; player.vy = 0; }
     }
-
-    if(player.y+player.height >= canvas.height){
-
-        player.y = canvas.height-player.height;
-
-        player.vy = 0;
-
-        player.grounded = true;
+    if (player.y + player.height >= canvas.height) {
+        player.y = canvas.height - player.height;
+        player.vy = 0; player.grounded = true;
     }
 }
 
-function movePlayer(){
-
-    player.vx = 0;
-
-    player.walking = false;
-
-    if(keys["ArrowLeft"] || keys["q"]){
-
-        player.vx = -player.speed;
-
-        player.facing = -1;
-
-        player.walking = true;
-    }
-
-    if(keys["ArrowRight"] || keys["d"]){
-
-        player.vx = player.speed;
-
-        player.facing = 1;
-
-        player.walking = true;
-    }
-
+function movePlayer() {
+    player.vx = 0; player.walking = false;
+    if (keys["ArrowLeft"] || keys["q"]) { player.vx = -player.speed; player.facing = -1; player.walking = true; }
+    if (keys["ArrowRight"] || keys["d"]) { player.vx = player.speed; player.facing = 1; player.walking = true; }
     resolveCollisions();
 }
 
-function updateBlocks(){
-
-    for(let b of blocks){
-
-        if(!b.landed){
-
-            b.vy += b.gold ? gravity*2.5 : gravity;
-
-            b.y += b.vy;
-
-            if(rect(player,b)){
-
-                killPlayer();
-
-                return;
-            }
-
-            let gy = groundHeight[b.col];
-
-            if(b.y+b.height >= gy){
-
-                b.y = gy-b.height;
-
-                b.vy = 0;
-
-                b.landed = true;
-
-                groundHeight[b.col] -= b.height;
-
-                if(rect(player,b)){
-
-                    killPlayer();
-
-                    return;
-                }
-            }
-        }
-    }
-
-    // vague dorée à 2500 points
-
-    if(!goldWave && score >= 2500){
-
-        triggerGoldWave();
-    }
-}
-
-// PERSONNAGE
-
-function drawHuman(px,py){
-
-    let walk = player.walking
-        ? Math.sin(frame*0.25)*5
-        : 0;
-
-    // jambes
-    ctx.fillStyle="#3a5fc8";
-
-    ctx.fillRect(px+5,py+45+walk,9,24);
-    ctx.fillRect(px+18,py+45-walk,9,24);
-
-    // corps
-    ctx.fillStyle="#c0392b";
-
-    ctx.fillRect(px+5,py+15,20,28);
-
-    // bras
-    ctx.fillRect(px-3,py+18+walk,7,22);
-    ctx.fillRect(px+26,py+18-walk,7,22);
-
-    // tête
-    ctx.fillStyle="#f5cba7";
-
-    ctx.fillRect(px+4,py-8,22,22);
-
-    // cheveux
-    ctx.fillStyle="#5c3317";
-
-    ctx.fillRect(px+4,py-8,22,7);
-
-    // yeux
-    ctx.fillStyle="black";
-
-    ctx.fillRect(px+9,py+1,3,3);
-    ctx.fillRect(px+17,py+1,3,3);
-}
-
-// BLOCS
-
-function drawBlocks() {
-
+function updateBlocks() {
     for (let b of blocks) {
-
-        if (b.gold) {
-
-            // ombre
-            ctx.fillStyle = "rgba(0,0,0,0.3)";
-            ctx.fillRect(b.x+5,b.y+5,b.width,b.height);
-
-            // dégradé or
-            const grd = ctx.createLinearGradient(
-                b.x,
-                b.y,
-                b.x,
-                b.y+b.height
-            );
-
-            grd.addColorStop(0,"#ffe066");
-            grd.addColorStop(0.4,"#ffd700");
-            grd.addColorStop(1,"#b8860b");
-
-            ctx.fillStyle = grd;
-
-            ctx.fillRect(
-                b.x,
-                b.y,
-                b.width,
-                b.height
-            );
-
-            // lumière
-            ctx.fillStyle = "rgba(255,255,220,0.45)";
-
-            ctx.fillRect(
-                b.x+2,
-                b.y+2,
-                b.width-4,
-                10
-            );
-
-            // contour
-            ctx.strokeStyle = "rgba(120,80,0,0.5)";
-            ctx.lineWidth = 2;
-
-            ctx.strokeRect(
-                b.x,
-                b.y,
-                b.width,
-                b.height
-            );
-
-            // lignes internes
-            ctx.beginPath();
-
-            ctx.moveTo(
-                b.x+b.width/2,
-                b.y
-            );
-
-            ctx.lineTo(
-                b.x+b.width/2,
-                b.y+b.height
-            );
-
-            ctx.moveTo(
-                b.x,
-                b.y+b.height/2
-            );
-
-            ctx.lineTo(
-                b.x+b.width,
-                b.y+b.height/2
-            );
-
-            ctx.stroke();
-
-            // brillance animée
-            if(frame % 20 < 10){
-
-                ctx.fillStyle = "rgba(255,255,200,0.8)";
-
-                ctx.beginPath();
-
-                ctx.arc(
-                    b.x+b.width*0.75,
-                    b.y+b.height*0.25,
-                    4,
-                    0,
-                    Math.PI*2
-                );
-
-                ctx.fill();
+        if (!b.landed) {
+            b.vy += b.gold ? gravity * 2.5 : gravity;
+            b.y += b.vy;
+            if (rect(player, b)) { killPlayer(); return; }
+            let gy = groundHeight[b.col];
+            if (b.y + b.height >= gy) {
+                b.y = gy - b.height; b.vy = 0; b.landed = true;
+                groundHeight[b.col] -= b.height;
+                if (rect(player, b)) { killPlayer(); return; }
             }
+        }
+    }
+    if (!goldWave && score >= 2500) triggerGoldWave();
+}
 
-        } else {
+// ---- PERSONNAGE STYLE MINECRAFT ARTICULÉ ----
+function drawHuman(px, py) {
+    const f = player.facing;
+    const walking = player.walking;
+    const grounded = player.grounded;
+    const vy = player.vy;
+    const bx = px + player.width / 2;
+    const by = py + player.height;
 
-            // ombre
-            ctx.fillStyle = "rgba(0,0,0,0.25)";
-            ctx.fillRect(b.x+5,b.y+5,b.width,b.height);
+    let wa = walking && grounded ? Math.sin(frame * 0.28) * 0.55 : 0;
+    let ja = !grounded ? (vy < 0 ? -0.45 : 0.3) : 0;
 
-            // bloc
-            ctx.fillStyle = b.landed
-                ? "#888"
-                : "#999";
+    const headW=22, headH=22, bodyW=20, bodyH=26, limbW=9, legH=24, armH=24;
+    const bodyTop = by - legH - bodyH;
+    const headTop = bodyTop - headH - 1;
+    const bodyX = bx - bodyW / 2;
+    const headX = bx - headW / 2;
 
-            ctx.fillRect(
-                b.x,
-                b.y,
-                b.width,
-                b.height
-            );
+    // Jambe gauche
+    ctx.save();
+    ctx.translate(bx - limbW/2 - 1, by - legH);
+    ctx.rotate(grounded ? -wa : ja);
+    ctx.fillStyle = "#3a5fc8"; ctx.fillRect(-limbW/2, 0, limbW, legH*0.55);
+    ctx.fillStyle = "#2e4db5"; ctx.fillRect(-limbW/2+1, legH*0.52, limbW-2, legH*0.48);
+    ctx.fillStyle = "#1a1a1a"; ctx.fillRect(-limbW/2-1, legH*0.88, limbW+3, legH*0.14);
+    ctx.restore();
 
-            // lumière
-            ctx.fillStyle = "rgba(255,255,255,0.18)";
+    // Jambe droite
+    ctx.save();
+    ctx.translate(bx + limbW/2 + 1, by - legH);
+    ctx.rotate(grounded ? wa : ja);
+    ctx.fillStyle = "#3a5fc8"; ctx.fillRect(-limbW/2, 0, limbW, legH*0.55);
+    ctx.fillStyle = "#2e4db5"; ctx.fillRect(-limbW/2+1, legH*0.52, limbW-2, legH*0.48);
+    ctx.fillStyle = "#1a1a1a"; ctx.fillRect(-limbW/2-2, legH*0.88, limbW+3, legH*0.14);
+    ctx.restore();
 
-            ctx.fillRect(
-                b.x,
-                b.y,
-                b.width,
-                10
-            );
+    // Corps
+    ctx.fillStyle = "#c0392b"; ctx.fillRect(bodyX, bodyTop, bodyW, bodyH);
+    ctx.fillStyle = "#a93226"; ctx.fillRect(bodyX+bodyW/2-1, bodyTop+2, 2, bodyH-4);
+    ctx.fillStyle = "#4a3000"; ctx.fillRect(bodyX-1, bodyTop+bodyH-5, bodyW+2, 5);
+    ctx.fillStyle = "#c8a200"; ctx.fillRect(bodyX+bodyW/2-3, bodyTop+bodyH-5, 6, 5);
 
-            // ombre côté
-            ctx.fillStyle = "rgba(0,0,0,0.15)";
+    // Bras gauche
+    let armL = grounded ? (walking ? wa*1.1 : 0.1) : (vy < 0 ? -0.6 : 0.3);
+    let armR = grounded ? (walking ? -wa*1.1 : -0.1) : (vy < 0 ? 0.6 : -0.3);
+    ctx.save();
+    ctx.translate(bodyX - 1, bodyTop + 3);
+    ctx.rotate(-armL);
+    ctx.fillStyle = "#c0392b"; ctx.fillRect(-limbW, 0, limbW, armH*0.55);
+    ctx.fillStyle = "#f5cba7"; ctx.fillRect(-limbW+1, armH*0.52, limbW-2, armH*0.48);
+    ctx.restore();
 
-            ctx.fillRect(
-                b.x,
-                b.y,
-                6,
-                b.height
-            );
+    // Bras droit
+    ctx.save();
+    ctx.translate(bodyX + bodyW + 1, bodyTop + 3);
+    ctx.rotate(-armR);
+    ctx.fillStyle = "#c0392b"; ctx.fillRect(0, 0, limbW, armH*0.55);
+    ctx.fillStyle = "#f5cba7"; ctx.fillRect(1, armH*0.52, limbW-2, armH*0.48);
+    ctx.restore();
 
-            // contour
-            ctx.strokeStyle = "rgba(0,0,0,0.22)";
-            ctx.lineWidth = 1.5;
+    // Tête
+    ctx.fillStyle = "#f5cba7"; ctx.fillRect(headX, headTop, headW, headH);
+    // Cheveux
+    ctx.fillStyle = "#5c3317";
+    ctx.fillRect(headX, headTop, headW, 8);
+    ctx.fillRect(headX, headTop+8, 3, 6);
+    ctx.fillRect(headX+headW-3, headTop+8, 3, 6);
+    // Yeux pixel
+    const eyeY = headTop + 10;
+    if (f === 1) {
+        ctx.fillStyle = "#fff"; ctx.fillRect(headX+headW-11, eyeY, 8, 6);
+        ctx.fillStyle = "#1a1a1a"; ctx.fillRect(headX+headW-7, eyeY+1, 4, 4);
+        ctx.fillStyle = "#fff"; ctx.fillRect(headX+2, eyeY, 6, 6);
+        ctx.fillStyle = "#1a1a1a"; ctx.fillRect(headX+4, eyeY+1, 3, 4);
+    } else {
+        ctx.fillStyle = "#fff"; ctx.fillRect(headX+3, eyeY, 8, 6);
+        ctx.fillStyle = "#1a1a1a"; ctx.fillRect(headX+3, eyeY+1, 4, 4);
+        ctx.fillStyle = "#fff"; ctx.fillRect(headX+headW-8, eyeY, 6, 6);
+        ctx.fillStyle = "#1a1a1a"; ctx.fillRect(headX+headW-7, eyeY+1, 3, 4);
+    }
+    // Bouche pixel
+    ctx.fillStyle = "#a0522d";
+    if (f === 1) { ctx.fillRect(headX+headW-9, eyeY+8, 6, 2); }
+    else { ctx.fillRect(headX+3, eyeY+8, 6, 2); }
+    // Contours bloc
+    ctx.strokeStyle = "rgba(0,0,0,0.4)"; ctx.lineWidth = 1;
+    ctx.strokeRect(headX, headTop, headW, headH);
+    ctx.strokeRect(bodyX, bodyTop, bodyW, bodyH);
+}
 
-            ctx.strokeRect(
-                b.x,
-                b.y,
-                b.width,
-                b.height
-            );
-
-            // détails internes
+// ---- BLOCS ----
+function drawBlocks() {
+    for (let b of blocks) {
+        if (b.gold) {
+            // Ombre
+            ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.fillRect(b.x+5, b.y+5, b.width, b.height);
+            // Dégradé or
+            const grd = ctx.createLinearGradient(b.x, b.y, b.x, b.y+b.height);
+            grd.addColorStop(0, "#ffe066");
+            grd.addColorStop(0.4, "#ffd700");
+            grd.addColorStop(1, "#b8860b");
+            ctx.fillStyle = grd; ctx.fillRect(b.x, b.y, b.width, b.height);
+            // Lumière
+            ctx.fillStyle = "rgba(255,255,220,0.45)"; ctx.fillRect(b.x+2, b.y+2, b.width-4, 10);
+            // Contour
+            ctx.strokeStyle = "rgba(120,80,0,0.5)"; ctx.lineWidth = 2;
+            ctx.strokeRect(b.x, b.y, b.width, b.height);
+            // Lignes internes
             ctx.beginPath();
-
-            ctx.moveTo(
-                b.x+b.width/2,
-                b.y
-            );
-
-            ctx.lineTo(
-                b.x+b.width/2,
-                b.y+b.height
-            );
-
-            ctx.moveTo(
-                b.x,
-                b.y+b.height/2
-            );
-
-            ctx.lineTo(
-                b.x+b.width,
-                b.y+b.height/2
-            );
-
+            ctx.moveTo(b.x+b.width/2, b.y); ctx.lineTo(b.x+b.width/2, b.y+b.height);
+            ctx.moveTo(b.x, b.y+b.height/2); ctx.lineTo(b.x+b.width, b.y+b.height/2);
+            ctx.stroke();
+            // Brillance animée
+            if (frame % 20 < 10) {
+                ctx.fillStyle = "rgba(255,255,200,0.8)";
+                ctx.beginPath(); ctx.arc(b.x+b.width*0.75, b.y+b.height*0.25, 4, 0, Math.PI*2); ctx.fill();
+            }
+        } else {
+            // Ombre
+            ctx.fillStyle = "rgba(0,0,0,0.25)"; ctx.fillRect(b.x+5, b.y+5, b.width, b.height);
+            // Bloc gris
+            ctx.fillStyle = b.landed ? "#888" : "#999"; ctx.fillRect(b.x, b.y, b.width, b.height);
+            // Lumière haut
+            ctx.fillStyle = "rgba(255,255,255,0.18)"; ctx.fillRect(b.x, b.y, b.width, 10);
+            // Ombre côté gauche
+            ctx.fillStyle = "rgba(0,0,0,0.15)"; ctx.fillRect(b.x, b.y, 6, b.height);
+            // Contour
+            ctx.strokeStyle = "rgba(0,0,0,0.22)"; ctx.lineWidth = 1.5;
+            ctx.strokeRect(b.x, b.y, b.width, b.height);
+            // Lignes internes
+            ctx.beginPath();
+            ctx.moveTo(b.x+b.width/2, b.y); ctx.lineTo(b.x+b.width/2, b.y+b.height);
+            ctx.moveTo(b.x, b.y+b.height/2); ctx.lineTo(b.x+b.width, b.y+b.height/2);
             ctx.stroke();
         }
     }
 }
 
-function pixelText(txt,x,y,size,color,align="center"){
-
+// ---- UI ----
+function pixelText(txt, x, y, size, color, align="center") {
     ctx.fillStyle = color;
-
-    ctx.font = `bold ${size}px Courier New`;
-
+    ctx.font = `bold ${size}px 'Courier New'`;
     ctx.textAlign = align;
-
-    ctx.fillText(txt,x,y);
-
+    ctx.fillText(txt, x, y);
     ctx.textAlign = "left";
 }
 
-function drawButton(x,y,w,h,label){
-
-    ctx.fillStyle="rgba(0,0,0,0.5)";
-    ctx.fillRect(x+4,y+4,w,h);
-
-    ctx.fillStyle="#3a3a3a";
-    ctx.fillRect(x,y,w,h);
-
-    pixelText(label,x+w/2,y+h/2+8,20,"#fff");
+function drawButton(x, y, w, h, label) {
+    ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(x+4, y+4, w, h);
+    ctx.fillStyle = "#3a3a3a"; ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = "rgba(255,255,255,0.25)"; ctx.fillRect(x, y, w, 3); ctx.fillRect(x, y, 3, h);
+    ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(x, y+h-3, w, 3); ctx.fillRect(x+w-3, y, 3, h);
+    pixelText(label, x+w/2, y+h/2+8, 20, "#fff");
 }
 
-function drawMenu(){
+// ---- ÉCRANS ----
+function drawMenu() {
+    const cx = canvas.width / 2;
+    ctx.fillStyle = "#1a1a2e"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    const cx = canvas.width/2;
+    ctx.fillStyle = "rgba(0,0,0,0.45)"; ctx.fillRect(cx-360, 90, 720, 120);
+    pixelText("🧱 BLOCKS SURVIVAL", cx, 152, 46, "#fff");
+    pixelText("Atteins 2500 points pour la vague dorée", cx, 192, 18, "#ffd700");
 
-    ctx.fillStyle="#1a1a2e";
+    // Personnage animé en aperçu
+    const sv=player.walking, sg=player.grounded, sf=player.facing, sx=player.x, sy=player.y;
+    player.walking=true; player.grounded=true; player.facing=1;
+    player.x=cx-15; player.y=260;
+    drawHuman(cx-15, 260);
+    player.walking=sv; player.grounded=sg; player.facing=sf; player.x=sx; player.y=sy;
 
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
+    ctx.fillStyle = "rgba(0,0,0,0.4)"; ctx.fillRect(cx-360, 345, 720, 90);
+    pixelText("← → / Q D  :  se déplacer", cx, 376, 17, "#ccc");
+    pixelText("↑ / Z / ESPACE  :  sauter", cx, 404, 17, "#ccc");
 
-    pixelText(
-        "🧱 BLOCKS SURVIVAL",
-        cx,
-        150,
-        46,
-        "#fff"
-    );
-
-    pixelText(
-        "Atteins 2500 points pour la vague dorée",
-        cx,
-        190,
-        18,
-        "#ffd700"
-    );
-
-    drawButton(
-        cx-190,
-        445,
-        380,
-        60,
-        "▶ JOUER (Entrée)"
-    );
+    drawButton(cx-190, 450, 380, 60, "▶  JOUER  ( Entrée )");
 }
 
-function drawDead(){
-
-    const cx = canvas.width/2;
-
+function drawDead() {
+    const cx = canvas.width / 2;
     drawBlocks();
-
-    ctx.fillStyle="rgba(0,0,0,0.72)";
-
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-    pixelText(
-        "GAME OVER",
-        cx,
-        215,
-        56,
-        "#e84040"
-    );
-
-    pixelText(
-        "Score : "+score,
-        cx,
-        272,
-        30,
-        "#fff"
-    );
-
-    drawButton(
-        cx-190,
-        390,
-        380,
-        60,
-        "↺ REJOUER"
-    );
+    ctx.fillStyle = "rgba(0,0,0,0.72)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#1a0000"; ctx.fillRect(cx-320, 130, 640, 420);
+    ctx.strokeStyle = "#c0392b"; ctx.lineWidth = 3; ctx.strokeRect(cx-320, 130, 640, 420);
+    pixelText("GAME OVER", cx, 215, 56, "#e84040");
+    pixelText("Score : " + score, cx, 272, 30, "#fff");
+    let stars = score > 3000 ? "★★★" : score > 1500 ? "★★☆" : score > 600 ? "★☆☆" : "☆☆☆";
+    pixelText(stars, cx, 320, 32, "#f1c40f");
+    let msg = score > 3000 ? "Incroyable !" : score > 1500 ? "Très bien !" : score > 600 ? "Pas mal !" : "Courage...";
+    pixelText(msg, cx, 360, 21, "#aaa");
+    drawButton(cx-190, 390, 380, 60, "↺  REJOUER  ( Entrée )");
+    drawButton(cx-190, 470, 380, 60, "⬅  MENU PRINCIPAL");
 }
 
-function drawBackground(){
-
-    ctx.fillStyle="#1a1a2e";
-
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-    ctx.fillStyle="#16213e";
-
-    ctx.fillRect(
-        0,
-        canvas.height-10,
-        canvas.width,
-        10
-    );
+function drawBackground() {
+    ctx.fillStyle = "#1a1a2e"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#16213e"; ctx.fillRect(0, canvas.height-10, canvas.width, 10);
 }
 
-function drawHUD(){
-
-    ctx.fillStyle="rgba(0,0,0,0.5)";
-
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        44
-    );
-
-    pixelText(
-        "BLOCKS SURVIVAL",
-        16,
-        28,
-        18,
-        "#888",
-        "left"
-    );
-
-    pixelText(
-        "Score : "+score,
-        canvas.width/2,
-        30,
-        22,
-        "#fff"
-    );
-
-    if(goldWave){
-
+function drawHUD() {
+    ctx.fillStyle = "rgba(0,0,0,0.5)"; ctx.fillRect(0, 0, canvas.width, 44);
+    pixelText("BLOCKS SURVIVAL", 16, 28, 18, "#888", "left");
+    pixelText("Score : " + score, canvas.width/2, 30, 22, "#fff");
+    if (goldWave) {
         ctx.globalAlpha = 0.5 + 0.5*Math.sin(frame*0.2);
-
-        pixelText(
-            "⚡ VAGUE DORÉE ! ⚡",
-            canvas.width/2,
-            75,
-            26,
-            "#ffd700"
-        );
-
+        pixelText("⚡ VAGUE DORÉE ! ⚡", canvas.width/2, 75, 26, "#ffd700");
         ctx.globalAlpha = 1;
     }
 }
 
-function update(){
-
+// ---- BOUCLE PRINCIPALE ----
+function update() {
     frame++;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    ctx.clearRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-    if(state==="menu"){
-
+    if (state === "menu") {
         drawMenu();
-    }
-
-    else if(state==="playing"){
-
+    } else if (state === "playing") {
         drawBackground();
-
         score++;
-
         movePlayer();
-
         updateBlocks();
 
-        if(shakeFrames>0){
-
+        if (shakeFrames > 0) {
             ctx.save();
-
-            ctx.translate(
-                (Math.random()-0.5)*10,
-                (Math.random()-0.5)*10
-            );
-
+            ctx.translate((Math.random()-0.5)*10, (Math.random()-0.5)*10);
             shakeFrames--;
         }
 
         drawBlocks();
+        drawHuman(player.x, player.y);
 
-        drawHuman(
-            player.x,
-            player.y
-        );
-
-        if(shakeFrames>=0){
-
-            ctx.restore();
-        }
+        if (shakeFrames >= 0) ctx.restore();
 
         drawHUD();
-    }
-
-    else if(state==="dead"){
-
+    } else if (state === "dead") {
         drawDead();
     }
 
